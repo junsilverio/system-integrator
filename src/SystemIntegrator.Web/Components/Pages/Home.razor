@@ -1,0 +1,232 @@
+﻿@page "/"
+@using SystemIntegrator.Web.Models
+@using SystemIntegrator.Web.Services
+@inject ApiConfigurationService ApiConfigService
+@inject ApiMonitoringService MonitoringService
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - System Integrator</PageTitle>
+
+<div class="container-fluid">
+    <h1 class="h3 mb-4">API Health Dashboard</h1>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-primary">
+                    <div class="card-body position-relative">
+                        <h5 class="card-title">Total APIs</h5>
+                        <p class="card-text display-6 mb-1">@stats["totalApis"]</p>
+                        <p class="metric-label mb-0">All configured APIs</p>
+                        <span class="metric-icon bi bi-hdd-network-fill"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-success">
+                    <div class="card-body position-relative">
+                        <h5 class="card-title">Healthy</h5>
+                        <p class="card-text display-6 mb-1">@stats["healthyApis"]</p>
+                        <p class="metric-label mb-0">Operating normally</p>
+                        <span class="metric-icon bi bi-check-circle-fill"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-warning">
+                    <div class="card-body position-relative">
+                        <h5 class="card-title">Degraded</h5>
+                        <p class="card-text display-6 mb-1">@stats["degradedApis"]</p>
+                        <p class="metric-label mb-0">Needs attention</p>
+                        <span class="metric-icon bi bi-exclamation-triangle-fill"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-danger">
+                    <div class="card-body position-relative">
+                        <h5 class="card-title">Down</h5>
+                        <p class="card-text display-6 mb-1">@stats["downApis"]</p>
+                        <p class="metric-label mb-0">Immediate action required</p>
+                        <span class="metric-icon bi bi-x-circle-fill"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Status Table -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">API Status</h5>
+                <button class="btn btn-sm btn-primary" @onclick="RefreshAllApis">
+                    <span class="bi bi-arrow-clockwise"></span> Refresh All
+                </button>
+            </div>
+            <div class="card-body">
+                @if (apis.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Status</th>
+                                    <th>Response Time</th>
+                                    <th>Last Checked</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var api in apis)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@api.Name</strong>
+                                            @if (!api.IsEnabled)
+                                            {
+                                                <span class="badge bg-secondary ms-2">Disabled</span>
+                                            }
+                                        </td>
+                                        <td><small>@api.Url</small></td>
+                                        <td>
+                                            @if (api.Status == ApiStatus.Healthy)
+                                            {
+                                                <span class="badge bg-success">Healthy</span>
+                                            }
+                                            else if (api.Status == ApiStatus.Degraded)
+                                            {
+                                                <span class="badge bg-warning">Degraded</span>
+                                            }
+                                            else if (api.Status == ApiStatus.Down)
+                                            {
+                                                <span class="badge bg-danger">Down</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Unknown</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (api.ResponseTime.HasValue)
+                                            {
+                                                <span>@api.ResponseTime ms</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (api.LastChecked.HasValue)
+                                            {
+                                                <small>@api.LastChecked.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Never</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => CheckApiHealth(api)" 
+                                                    disabled="@(!api.IsEnabled)">
+                                                <span class="bi bi-arrow-clockwise"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @if (!string.IsNullOrEmpty(api.LastError))
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="bg-light">
+                                                <small class="text-danger">
+                                                    <strong>Error:</strong> @api.LastError
+                                                </small>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-4">
+                        No APIs configured. Go to <a href="/maintenance">Maintenance</a> to add APIs.
+                    </p>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private List<ApiConfiguration> apis = new();
+    private Dictionary<string, object> stats = new();
+    private System.Threading.Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        
+        // Auto-refresh every 30 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshAllApis();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        apis = await ApiConfigService.GetAllAsync();
+        stats = await MonitoringService.GetDashboardStatsAsync(apis);
+        isLoading = false;
+    }
+
+    private async Task CheckApiHealth(ApiConfiguration api)
+    {
+        if (!api.IsEnabled) return;
+
+        var (status, responseTime, error) = await MonitoringService.CheckApiHealthAsync(api.Url);
+        
+        api.Status = status;
+        api.ResponseTime = responseTime;
+        api.LastChecked = DateTime.UtcNow;
+        api.LastError = error;
+        
+        await ApiConfigService.UpdateAsync(api);
+        await LoadData();
+    }
+
+    private async Task RefreshAllApis()
+    {
+        var enabledApis = apis.Where(a => a.IsEnabled).ToList();
+        
+        foreach (var api in enabledApis)
+        {
+            await CheckApiHealth(api);
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}

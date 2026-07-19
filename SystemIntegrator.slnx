@@ -1,3 +1,5 @@
 <Solution>
-  <Project Path="SystemIntegrator.Web/SystemIntegrator.Web.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/SystemIntegrator.Web/SystemIntegrator.Web.csproj" />
+  </Folder>
 </Solution>
