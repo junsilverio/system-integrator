@@ -1,0 +1,395 @@
+@page "/integrations"
+@using SystemIntegrator.Web.Models
+@using SystemIntegrator.Web.Services
+@inject IntegrationService IntegrationService
+@inject ApiConfigurationService ApiConfigService
+@rendermode InteractiveServer
+
+<PageTitle>Integrations - System Integrator</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">System Integrations Configuration</h1>
+        <button class="btn btn-primary" @onclick="ShowAddModal">
+            <span class="bi bi-plus-circle"></span> Add New Integration
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Filter Section -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Filter by API</label>
+                        <select class="form-select" @onchange="FilterByApi">
+                            <option value="">All APIs</option>
+                            @foreach (var api in apiConfigs)
+                            {
+                                <option value="@api.Id">@api.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Filter by Status</label>
+                        <select class="form-select" @onchange="FilterByStatus">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Integrations List -->
+        <div class="card">
+            <div class="card-body">
+                @if (filteredIntegrations.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>System Name</th>
+                                    <th>Integration Type</th>
+                                    <th>API Configuration</th>
+                                    <th>Authentication</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var integration in filteredIntegrations)
+                                {
+                                    <tr>
+                                        <td><strong>@integration.SystemName</strong></td>
+                                        <td>
+                                            <span class="badge bg-info">@integration.IntegrationType</span>
+                                        </td>
+                                        <td>
+                                            @if (integration.ApiConfiguration != null)
+                                            {
+                                                <span>@integration.ApiConfiguration.Name</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(integration.AuthenticationMethod))
+                                            {
+                                                <small>@integration.AuthenticationMethod</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">None</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (integration.IsActive)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </td>
+                                        <td><small>@integration.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</small></td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditModal(integration)">
+                                                    <span class="bi bi-pencil"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" @onclick="() => ToggleActive(integration)">
+                                                    <span class="bi @(integration.IsActive ? "bi-pause" : "bi-play")"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(integration)">
+                                                    <span class="bi bi-trash"></span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @if (!string.IsNullOrEmpty(integration.ConfigurationJson))
+                                    {
+                                        <tr>
+                                            <td colspan="7" class="bg-light">
+                                                <details>
+                                                    <summary class="cursor-pointer"><small>Configuration Details</small></summary>
+                                                    <pre class="mt-2 mb-0"><code>@integration.ConfigurationJson</code></pre>
+                                                </details>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-4">No integrations found. Click "Add New Integration" to create one.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Integrations</h5>
+                        <p class="display-6">@integrations.Count</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Active Integrations</h5>
+                        <p class="display-6">@integrations.Count(i => i.IsActive)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Integration Types</h5>
+                        <p class="display-6">@integrations.Select(i => i.IntegrationType).Distinct().Count()</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit" : "Add") Integration</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentIntegration" OnValidSubmit="SaveIntegration">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label class="form-label">System Name *</label>
+                            <InputText class="form-control" @bind-Value="currentIntegration.SystemName" />
+                            <ValidationMessage For="@(() => currentIntegration.SystemName)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Integration Type *</label>
+                            <InputSelect class="form-select" @bind-Value="currentIntegration.IntegrationType">
+                                <option value="">Select Type</option>
+                                <option value="REST API">REST API</option>
+                                <option value="SOAP">SOAP</option>
+                                <option value="GraphQL">GraphQL</option>
+                                <option value="Webhook">Webhook</option>
+                                <option value="Database">Database</option>
+                                <option value="Message Queue">Message Queue</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => currentIntegration.IntegrationType)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">API Configuration *</label>
+                            <InputSelect class="form-select" @bind-Value="currentIntegration.ApiConfigurationId">
+                                <option value="0">Select API</option>
+                                @foreach (var api in apiConfigs)
+                                {
+                                    <option value="@api.Id">@api.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Authentication Method</label>
+                            <InputSelect class="form-select" @bind-Value="currentIntegration.AuthenticationMethod">
+                                <option value="">None</option>
+                                <option value="API Key">API Key</option>
+                                <option value="OAuth 2.0">OAuth 2.0</option>
+                                <option value="JWT">JWT</option>
+                                <option value="Basic Auth">Basic Auth</option>
+                                <option value="Certificate">Certificate</option>
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Configuration (JSON)</label>
+                            <InputTextArea class="form-control font-monospace" @bind-Value="currentIntegration.ConfigurationJson" rows="8" />
+                            <small class="form-text text-muted">Enter configuration details in JSON format</small>
+                        </div>
+                        <div class="form-check mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="currentIntegration.IsActive" id="isActiveCheck" />
+                            <label class="form-check-label" for="isActiveCheck">
+                                Active
+                            </label>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteConfirm)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteConfirm = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the integration for <strong>@integrationToDelete?.SystemName</strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteConfirm = false">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private List<IntegrationConfig> integrations = new();
+    private List<IntegrationConfig> filteredIntegrations = new();
+    private List<ApiConfiguration> apiConfigs = new();
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private IntegrationConfig currentIntegration = new();
+    private bool showDeleteConfirm = false;
+    private IntegrationConfig? integrationToDelete = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        integrations = await IntegrationService.GetAllAsync();
+        apiConfigs = await ApiConfigService.GetAllAsync();
+        filteredIntegrations = integrations;
+        isLoading = false;
+    }
+
+    private void FilterByApi(ChangeEventArgs e)
+    {
+        var apiId = e.Value?.ToString();
+        if (string.IsNullOrEmpty(apiId))
+        {
+            filteredIntegrations = integrations;
+        }
+        else
+        {
+            var id = int.Parse(apiId);
+            filteredIntegrations = integrations.Where(i => i.ApiConfigurationId == id).ToList();
+        }
+    }
+
+    private void FilterByStatus(ChangeEventArgs e)
+    {
+        var status = e.Value?.ToString();
+        if (string.IsNullOrEmpty(status))
+        {
+            filteredIntegrations = integrations;
+        }
+        else if (status == "active")
+        {
+            filteredIntegrations = integrations.Where(i => i.IsActive).ToList();
+        }
+        else
+        {
+            filteredIntegrations = integrations.Where(i => !i.IsActive).ToList();
+        }
+    }
+
+    private void ShowAddModal()
+    {
+        currentIntegration = new IntegrationConfig { IsActive = true };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void ShowEditModal(IntegrationConfig integration)
+    {
+        currentIntegration = new IntegrationConfig
+        {
+            Id = integration.Id,
+            SystemName = integration.SystemName,
+            IntegrationType = integration.IntegrationType,
+            ApiConfigurationId = integration.ApiConfigurationId,
+            AuthenticationMethod = integration.AuthenticationMethod,
+            ConfigurationJson = integration.ConfigurationJson,
+            IsActive = integration.IsActive,
+            CreatedAt = integration.CreatedAt,
+            UpdatedAt = integration.UpdatedAt
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentIntegration = new();
+    }
+
+    private async Task SaveIntegration()
+    {
+        if (isEditMode)
+        {
+            await IntegrationService.UpdateAsync(currentIntegration);
+        }
+        else
+        {
+            await IntegrationService.CreateAsync(currentIntegration);
+        }
+        
+        CloseModal();
+        await LoadData();
+    }
+
+    private async Task ToggleActive(IntegrationConfig integration)
+    {
+        await IntegrationService.ToggleActiveAsync(integration.Id);
+        await LoadData();
+    }
+
+    private void ShowDeleteConfirm(IntegrationConfig integration)
+    {
+        integrationToDelete = integration;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (integrationToDelete != null)
+        {
+            await IntegrationService.DeleteAsync(integrationToDelete.Id);
+            await LoadData();
+        }
+        showDeleteConfirm = false;
+        integrationToDelete = null;
+    }
+}

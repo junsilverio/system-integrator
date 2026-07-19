@@ -1,0 +1,285 @@
+@page "/maintenance"
+@using SystemIntegrator.Web.Models
+@using SystemIntegrator.Web.Services
+@inject ApiConfigurationService ApiConfigService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Maintenance - System Integrator</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">API Configuration Maintenance</h1>
+        <button class="btn btn-primary" @onclick="ShowAddModal">
+            <span class="bi bi-plus-circle"></span> Add New API
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                @if (apis.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Integrations</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var api in apis)
+                                {
+                                    <tr>
+                                        <td><strong>@api.Name</strong></td>
+                                        <td><small class="text-break">@api.Url</small></td>
+                                        <td>@api.Description</td>
+                                        <td>
+                                            @if (api.IsEnabled)
+                                            {
+                                                <span class="badge bg-success">Enabled</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Disabled</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@api.Integrations.Count</span>
+                                        </td>
+                                        <td><small>@api.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</small></td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditModal(api)">
+                                                    <span class="bi bi-pencil"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" @onclick="() => ToggleStatus(api)">
+                                                    <span class="bi @(api.IsEnabled ? "bi-pause" : "bi-play")"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(api)">
+                                                    <span class="bi bi-trash"></span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted text-center py-4">No API configurations found. Click "Add New API" to create one.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total APIs</h5>
+                        <p class="display-6">@apis.Count</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Enabled APIs</h5>
+                        <p class="display-6">@apis.Count(a => a.IsEnabled)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Integrations</h5>
+                        <p class="display-6">@apis.Sum(a => a.Integrations.Count)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit" : "Add") API Configuration</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentApi" OnValidSubmit="SaveApi">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            <InputText class="form-control" @bind-Value="currentApi.Name" />
+                            <ValidationMessage For="@(() => currentApi.Name)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">URL *</label>
+                            <InputText class="form-control" @bind-Value="currentApi.Url" />
+                            <ValidationMessage For="@(() => currentApi.Url)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <InputTextArea class="form-control" @bind-Value="currentApi.Description" rows="3" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="currentApi.IsEnabled" id="isEnabledCheck" />
+                            <label class="form-check-label" for="isEnabledCheck">
+                                Enabled
+                            </label>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteConfirm)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteConfirm = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete <strong>@apiToDelete?.Name</strong>?</p>
+                    @if (apiToDelete?.Integrations.Count > 0)
+                    {
+                        <div class="alert alert-warning">
+                            <strong>Warning:</strong> This API has @apiToDelete.Integrations.Count integration(s) that will also be deleted.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showDeleteConfirm = false">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private List<ApiConfiguration> apis = new();
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private ApiConfiguration currentApi = new();
+    private bool showDeleteConfirm = false;
+    private ApiConfiguration? apiToDelete = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        apis = await ApiConfigService.GetAllAsync();
+        isLoading = false;
+    }
+
+    private void ShowAddModal()
+    {
+        currentApi = new ApiConfiguration { IsEnabled = true };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void ShowEditModal(ApiConfiguration api)
+    {
+        currentApi = new ApiConfiguration
+        {
+            Id = api.Id,
+            Name = api.Name,
+            Url = api.Url,
+            Description = api.Description,
+            IsEnabled = api.IsEnabled,
+            Status = api.Status,
+            ResponseTime = api.ResponseTime,
+            LastChecked = api.LastChecked,
+            LastError = api.LastError,
+            CreatedAt = api.CreatedAt,
+            UpdatedAt = api.UpdatedAt
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentApi = new();
+    }
+
+    private async Task SaveApi()
+    {
+        if (isEditMode)
+        {
+            await ApiConfigService.UpdateAsync(currentApi);
+        }
+        else
+        {
+            await ApiConfigService.CreateAsync(currentApi);
+        }
+        
+        CloseModal();
+        await LoadData();
+    }
+
+    private async Task ToggleStatus(ApiConfiguration api)
+    {
+        await ApiConfigService.ToggleStatusAsync(api.Id);
+        await LoadData();
+    }
+
+    private void ShowDeleteConfirm(ApiConfiguration api)
+    {
+        apiToDelete = api;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (apiToDelete != null)
+        {
+            await ApiConfigService.DeleteAsync(apiToDelete.Id);
+            await LoadData();
+        }
+        showDeleteConfirm = false;
+        apiToDelete = null;
+    }
+}
