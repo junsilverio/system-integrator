@@ -1,0 +1,191 @@
+@page "/integrations"
+@rendermode InteractiveServer
+@using SystemIntegrator.Web.Services
+@inject IntegrationRepository Repository
+
+<PageTitle>Integrations</PageTitle>
+
+<h1>System Integrations Configuration</h1>
+<p class="text-secondary">Configure integration connectivity for each dependent system.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="smartadmin-card">
+            <div class="metric-title">Configured Systems</div>
+            <div class="metric-value">@_report.Total</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="smartadmin-card">
+            <div class="metric-title">Enabled</div>
+            <div class="metric-value text-success">@_report.Enabled</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="smartadmin-card">
+            <div class="metric-title">Disabled</div>
+            <div class="metric-value text-danger">@_report.Disabled</div>
+        </div>
+    </div>
+</div>
+
+<div class="smartadmin-card mb-4">
+    <h2 class="h5">@(_editingId is null ? "Add Integration Config" : "Update Integration Config")</h2>
+
+    <EditForm Model="_form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">System Name</label>
+                <InputText class="form-control" @bind-Value="_form.SystemName" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Auth Type</label>
+                <InputText class="form-control" @bind-Value="_form.AuthenticationType" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Endpoint URL</label>
+                <InputText class="form-control" @bind-Value="_form.EndpointUrl" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Timeout (s)</label>
+                <InputNumber class="form-control" @bind-Value="_form.TimeoutSeconds" />
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <div>
+                    <InputCheckbox class="form-check-input me-1" @bind-Value="_form.Enabled" /> On
+                </div>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ClearForm">Clear</button>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+<div class="smartadmin-card">
+    <h2 class="h5">Current System Integrations</h2>
+
+    <table class="table align-middle mb-0">
+        <thead>
+            <tr>
+                <th>System</th>
+                <th>Authentication</th>
+                <th>Endpoint</th>
+                <th>Timeout</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _integrations)
+            {
+                <tr>
+                    <td>@item.SystemName</td>
+                    <td>@item.AuthenticationType</td>
+                    <td>@item.EndpointUrl</td>
+                    <td>@item.TimeoutSeconds s</td>
+                    <td>@(item.Enabled ? "Enabled" : "Disabled")</td>
+                    <td>@item.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary me-1" @onclick="() => Edit(item)">Edit</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning me-1" @onclick="() => Toggle(item)">
+                            @(item.Enabled ? "Disable" : "Enable")
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Remove(item.Id)">Remove</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private IntegrationConfigurationReport _report = new(0, 0, 0);
+    private List<SystemIntegrationConfiguration> _integrations = [];
+    private IntegrationForm _form = new();
+    private Guid? _editingId;
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    private Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.SystemName) || string.IsNullOrWhiteSpace(_form.AuthenticationType) || string.IsNullOrWhiteSpace(_form.EndpointUrl))
+        {
+            return Task.CompletedTask;
+        }
+
+        var timeout = _form.TimeoutSeconds <= 0 ? 30 : _form.TimeoutSeconds;
+        Repository.UpsertSystemIntegration(new SystemIntegrationInput(
+            _editingId,
+            _form.SystemName,
+            _form.AuthenticationType,
+            _form.EndpointUrl,
+            timeout,
+            _form.Enabled));
+
+        ClearForm();
+        Reload();
+        return Task.CompletedTask;
+    }
+
+    private void Edit(SystemIntegrationConfiguration item)
+    {
+        _editingId = item.Id;
+        _form = new IntegrationForm
+        {
+            SystemName = item.SystemName,
+            AuthenticationType = item.AuthenticationType,
+            EndpointUrl = item.EndpointUrl,
+            TimeoutSeconds = item.TimeoutSeconds,
+            Enabled = item.Enabled
+        };
+    }
+
+    private void Toggle(SystemIntegrationConfiguration item)
+    {
+        Repository.SetSystemIntegrationEnabled(item.Id, !item.Enabled);
+        Reload();
+    }
+
+    private void Remove(Guid id)
+    {
+        Repository.RemoveSystemIntegration(id);
+        if (_editingId == id)
+        {
+            ClearForm();
+        }
+
+        Reload();
+    }
+
+    private void ClearForm()
+    {
+        _editingId = null;
+        _form = new IntegrationForm
+        {
+            TimeoutSeconds = 30,
+            Enabled = true
+        };
+    }
+
+    private void Reload()
+    {
+        _integrations = Repository.GetSystemIntegrations().ToList();
+        _report = Repository.GetIntegrationConfigurationReport();
+    }
+
+    private sealed class IntegrationForm
+    {
+        public string SystemName { get; set; } = string.Empty;
+        public string AuthenticationType { get; set; } = "OAuth2";
+        public string EndpointUrl { get; set; } = string.Empty;
+        public int TimeoutSeconds { get; set; } = 30;
+        public bool Enabled { get; set; } = true;
+    }
+}
