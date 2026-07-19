@@ -346,3 +346,33 @@ h1.h3 {
 .spinner-border {
     color: #3498db;
 }
+
+/* Top bar enhancements */
+.top-row {
+    background-color: white;
+    border-bottom: 1px solid #e8ecef;
+    padding: 1rem 1.5rem !important;
+    height: 70px;
+}
+
+.search-box {
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background-color: #f8fafb;
+    border-radius: 8px;
+}
+
+.search-box input {
+    outline: none;
+    box-shadow: none;
+}
+
+.search-box input::placeholder {
+    color: #95a5a6;
+}
+
+.user-avatar {
+    background: linear-gradient(135deg, #3498db, #2980b9) !important;
+}

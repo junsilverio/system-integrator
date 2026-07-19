@@ -22,35 +22,43 @@
     {
         <!-- Stats Cards -->
         <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card text-white bg-primary">
-                    <div class="card-body">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-primary">
+                    <div class="card-body position-relative">
                         <h5 class="card-title">Total APIs</h5>
-                        <p class="card-text display-6">@stats["totalApis"]</p>
+                        <p class="card-text display-6 mb-1">@stats["totalApis"]</p>
+                        <p class="metric-label mb-0">All configured APIs</p>
+                        <span class="metric-icon bi bi-hdd-network-fill"></span>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-success">
-                    <div class="card-body">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-success">
+                    <div class="card-body position-relative">
                         <h5 class="card-title">Healthy</h5>
-                        <p class="card-text display-6">@stats["healthyApis"]</p>
+                        <p class="card-text display-6 mb-1">@stats["healthyApis"]</p>
+                        <p class="metric-label mb-0">Operating normally</p>
+                        <span class="metric-icon bi bi-check-circle-fill"></span>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-warning">
-                    <div class="card-body">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-warning">
+                    <div class="card-body position-relative">
                         <h5 class="card-title">Degraded</h5>
-                        <p class="card-text display-6">@stats["degradedApis"]</p>
+                        <p class="card-text display-6 mb-1">@stats["degradedApis"]</p>
+                        <p class="metric-label mb-0">Needs attention</p>
+                        <span class="metric-icon bi bi-exclamation-triangle-fill"></span>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-danger">
-                    <div class="card-body">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card metric-card card-danger">
+                    <div class="card-body position-relative">
                         <h5 class="card-title">Down</h5>
-                        <p class="card-text display-6">@stats["downApis"]</p>
+                        <p class="card-text display-6 mb-1">@stats["downApis"]</p>
+                        <p class="metric-label mb-0">Immediate action required</p>
+                        <span class="metric-icon bi bi-x-circle-fill"></span>
                     </div>
                 </div>
             </div>
